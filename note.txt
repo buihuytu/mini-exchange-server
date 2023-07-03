@@ -1,0 +1,84 @@
+Yêu cầu: mua, bán, xem lịch sử, tăng giảm số lượng cổ phiếu + tiền trong tài khoản
+-----------------------------------------------------
+- kiểm tra khi client gửi order lên server:
++ mã cổ phiểu
++ trường hợp bán: số lượng cổ phiếu hiện có có đủ để bán không (số lượng cổ phiểu trong data >= số lượng bán)
++ trường hợp mua: số dư trong tài khoản có đủ để mua không (số dư > số lượng cổ phiếu mua * giá tiền)
++ nếu tất cả các trường hợp thỏa mãn thì thêm order vào db
+
+- message server nhận được khi client gửi order:
+['1','sell', 'tcb', '10', '50'] (user_id,loại giao dịch, mã cổ phiếu, số lượng, giá)
+
+- order: 
+id, user_id, stock_symbol, order_amount, order_price, time_order, time_success, [state (thành công/ không thành công)]
++ phải đăng nhập mới được order
+
+- handle order: 
++ kiểm tra: userid, mã cổ phiếu, số lượng, giá, time_success
++ nếu order của client khớp với order có trên db thì cập nhật lại time_success để đánh dấu order đã được hoàn thành
++ gửi lại thông báo tới 2 client
+-------
+Problem 1: xử lý order thời gian thực
+- lưu lại địa chỉ của client: client 1 gửi request bán lên và chưa có order nào thỏa mãn => client 1 phải chờ. Khi client 2 gửi request mua lên và thỏa mãn với order của client 1 thì server gửi về cả 2 client. => khi lưu vào db thì cũng cần lưu vào bộ nhớ tạm địa chỉ của các client.
+dict = {userid: conn}
+--- solve:
++ mỗi khi client đăng nhập vào server: add {userid: conn} vào dict
++ khi client bấm exit ngắt kết nối thì xóa địa chỉ của client đó ra khỏi dict
+** Xóa item trong dict bằng value
+myDict = {1:"egg", "Answer":42, 8:14, "foo":42}
+# myDict = {key:val for key, val in myDict.items() if val != 42}
+for key, value in dict(myDict).items():
+        if value == 42:
+            del myDict[key]
+print(myDict)
+
+Problem 2: thay đổi số lượng và số dư
+- Bán:
++ cộng tiền (tổng tiền - 10%) vào số dư của client nếu bán thành công
++ trừ số lượng chứng khoán ở ví nếu bán thành công
+
+- Mua
++ trừ tiền vào số dư của client nếu mua thành công
++ cộng số lượng chứng khoán ở ví nếu mua thành công (nếu mã chứng khoán đó chưa tồn tại trong ví thì add thêm)
+
+Problem 3: xem lịch sử giao dịch
+
+Problem 5: 1 tài khoản đăng nhập tại nhiều client
+- client 1 đăng nhập buihuytu, client 2 cũng đăng nhập buihuytu khi client 1 chưa ngắt kết nối 
+* C1: cho phép 1 tài khoản có thể đăng nhập tại nhiều client => địa chỉ của tài khoản lưu trong dict sẽ bị thay đổi thành địa chỉ của client 2 (VÔ LÝ => BỎ)
+* C2: check đăng nhập => thêm trường trạng thái vào bảng user để kiểm tra có đang đăng nhập hay không. Nếu khi client1 đăng login buihuytu mà clien2 cũng login buihuytu thì trả về login false
+- đăng nhập => status = 1
+- exit, login => status = 0
+status: 0 - đang đăng nhập, 1 - chưa đăng nhập
+
+--------------------------DONE--------------------------
+
+----
+Problem 4: xử lý order lưu trong db
+- khi client gửi order lên, order được lưu vào db và đang chờ thành công. Nhưng sau đó, client lại ngắt kết nối khỏi server:
+* C1:order bị hủy => xóa khỏi db
+* C2:order vẫn còn và lưu trong db => sau đó có order thỏa mãn với order trên 
+=> thêm trường thể hiện trạng thái của order, trạng thái gửi đến người dùng
+=> sau đó khi người dùng đăng nhập lại thì sẽ nhận được thông báo thành công: 
++ khi đăng nhập: kiểm tra xem trạng thái order và trạng thái gửi đến người dùng trong 2 bảng mua và bán của người đó đã thành công chưa. Nếu trạng order là thành công nhưng trạng thái gửi đến người dùng chưa thành công => gửi cho client thông báo order(thông tin) đã thành công vào thời gian.
+Vd: Login Successfully - Your lastest order: buy: tcb, amount: 10, price: 50 successfully in .....
+=====> trường hợp này chỉ cần check khi đăng nhập, không cần lưu conn
+
+----------------Ví Dụ ----------------
+Client 1: Mua Cổ phiếu TCB: có giá: 32, khối lượng 50
+Client 1: send NewOrder Server 
+Server: trả response cho Client 1 (Accept Order) ngay khi nhận được order
+Server: Nếu Order không thỏa mãi điều kiện của server (Mã cổ phiếu không chính xác, khối lượng không hợp lê, sai giá,...) 
+  thì server sẽ Send Reject Order Client 1
+
+
+Client 2: Bán Cổ Phiếu TCB: có giá 32, Khối lượng 50
+Client 2: send NewOrder Server 
+Server: trả response cho Client 2 (Accept Order) ngay khi nhận được order
+Server: Nếu Order không thỏa mãi điều kiện của server (Mã cổ phiếu không chính xác, khối lượng không hợp lê, sai giá,...) 
+  thì server sẽ Send Reject Order cho Client 2
+  
+Tại thời điểm này thấy Client 1 và Client 2 khớp nhau vì vậy 
+
+Server: send Fill Order cho client 1 và client 2
+
