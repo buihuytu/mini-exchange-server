@@ -20,8 +20,10 @@ Mini-Exchange-Stock-Server, có thể hiểu là một Hệ thống giao dịch 
     - trường hợp mua: số dư trong tài khoản có đủ để mua không (số dư > số lượng cổ phiếu mua * giá tiền)
     - nếu tất cả các trường hợp thỏa mãn thì thêm order vào db
   - Thay đổi số dư của tài khoản khi có giao dịch
+  - ...
 - Client:
   - Đăng nhập, đăng xuất
   - Gửi các thông tin lệnh mua bán đến server
   - Lấy thông tin lịch sử giao dịch từ server, trạng thái order, số dư trong tài khoản
+  - ...
 - ...
